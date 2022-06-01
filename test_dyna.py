@@ -7,6 +7,7 @@ import numpy as np
 import torch
 import torchvision
 import torchvision.transforms as transforms
+from pytorch_msssim import ssim, ms_ssim, SSIM, MS_SSIM
 
 
 # Extract the options
@@ -35,6 +36,7 @@ model.setup(opt)               # regular setup: load and print networks; create 
 model.eval()
 
 PSNR_list = []
+SSIM_list = []
 N_channel_list = []
 count_list = [[]]*10
 PSNR_class_list = [[]]*10
@@ -67,6 +69,12 @@ for i, data in enumerate(dataset):
     PSNR_list.append(np.mean(PSNR))
 
     PSNR_class_list[data[1].item()].append(PSNR)
+    
+    img_gen_tensor = torch.from_numpy(np.transpose(img_gen_int8, (0, 3, 1, 2))).float()
+    origin_tensor = torch.from_numpy(np.transpose(origin_int8, (0, 3, 1, 2))).float()
+
+    ssim_val = ssim(img_gen_tensor, origin_tensor.repeat(opt.num_test_channel,1,1,1), data_range=255, size_average=False) # return (N,)
+    SSIM_list.append(torch.mean(ssim_val))
 
     if i % 100 == 0:
         print(i)
@@ -76,6 +84,7 @@ PSNRs = [np.mean(np.hstack(PSNR_class_list[i])) for i in range(10)]
 CPP_channel = np.mean(N_channel_list)/16
 CPP_Gtilde = np.mean(N_channel_list)*128/(2*32*32)
 Features = np.mean(N_channel_list)-4
+print('SSIM: '+str(np.mean(SSIM_list)))
 print(f'Mean PSNR: {np.mean(PSNR_list):.3f}')
 print(f'Mean Channel: {np.mean(N_channel_list):.3f}')
 print('Mean CPP_channel: ', CPP_channel)
